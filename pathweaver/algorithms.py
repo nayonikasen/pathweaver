@@ -67,6 +67,70 @@ def bfs(grid: Grid, start: Coord, goal: Coord) -> SearchResult:
     return SearchResult(path=path, came_from=came_from, stats=stats)
 
 
+def dfs(grid: Grid, start: Coord, goal: Coord) -> SearchResult:
+    t0 = time.perf_counter()
+    stack: List[Coord] = [start]
+    came_from: Dict[Coord, Optional[Coord]] = {start: None}
+
+    while stack:
+        current = stack.pop()
+        if current == goal:
+            break
+        for nxt in grid.neighbors(current):
+            if nxt not in came_from:
+                came_from[nxt] = current
+                stack.append(nxt)
+
+    path = reconstruct_path(came_from, start, goal)
+    t1 = time.perf_counter()
+    stats = SearchStats(
+        visited=len(came_from),
+        path_length=max(len(path) - 1, 0),
+        cost=max(len(path) - 1, 0),
+        runtime_ms=(t1 - t0) * 1000.0,
+        found=bool(path),
+        algorithm="DFS",
+        heuristic=None,
+    )
+    return SearchResult(path=path, came_from=came_from, stats=stats)
+
+
+def dijkstra(grid: Grid, start: Coord, goal: Coord) -> SearchResult:
+    t0 = time.perf_counter()
+    frontier: List[Tuple[float, int, Coord]] = []
+    heapq.heappush(frontier, (0.0, 0, start))
+    came_from: Dict[Coord, Optional[Coord]] = {start: None}
+    dist: Dict[Coord, float] = {start: 0.0}
+    tie = 0
+
+    while frontier:
+        current_cost, _, current = heapq.heappop(frontier)
+        if current == goal:
+            break
+        if current_cost > dist[current]:
+            continue
+        for nxt in grid.neighbors(current):
+            new_cost = dist[current] + 1.0
+            if nxt not in dist or new_cost < dist[nxt]:
+                dist[nxt] = new_cost
+                tie += 1
+                heapq.heappush(frontier, (new_cost, tie, nxt))
+                came_from[nxt] = current
+
+    path = reconstruct_path(came_from, start, goal)
+    t1 = time.perf_counter()
+    stats = SearchStats(
+        visited=len(came_from),
+        path_length=max(len(path) - 1, 0),
+        cost=max(len(path) - 1, 0),
+        runtime_ms=(t1 - t0) * 1000.0,
+        found=bool(path),
+        algorithm="Dijkstra",
+        heuristic=None,
+    )
+    return SearchResult(path=path, came_from=came_from, stats=stats)
+
+
 def a_star(grid: Grid, start: Coord, goal: Coord, heuristic: Heuristic, name: str) -> SearchResult:
     t0 = time.perf_counter()
     frontier: List[Tuple[float, int, Coord]] = []
@@ -100,3 +164,55 @@ def a_star(grid: Grid, start: Coord, goal: Coord, heuristic: Heuristic, name: st
         heuristic=name,
     )
     return SearchResult(path=path, came_from=came_from, stats=stats)
+
+
+def astar_path(grid: Grid, start: Coord, goal: Coord, heuristic: Heuristic) -> List[Coord]:
+    if not grid.in_bounds(start) or not grid.in_bounds(goal):
+        return []
+    if not grid.passable(start) or not grid.passable(goal):
+        return []
+    if start == goal:
+        return [start]
+    result = a_star(grid, start, goal, heuristic, "custom")
+    return result.path
+
+
+def bfs_path(grid: Grid, start: Coord, goal: Coord) -> List[Coord]:
+    if not grid.in_bounds(start) or not grid.in_bounds(goal):
+        return []
+    if not grid.passable(start) or not grid.passable(goal):
+        return []
+    if start == goal:
+        return [start]
+    result = bfs(grid, start, goal)
+    return result.path
+
+
+def dfs_path(grid: Grid, start: Coord, goal: Coord) -> List[Coord]:
+    if not grid.in_bounds(start) or not grid.in_bounds(goal):
+        return []
+    if not grid.passable(start) or not grid.passable(goal):
+        return []
+    if start == goal:
+        return [start]
+    result = dfs(grid, start, goal)
+    return result.path
+
+
+def dijkstra_path(grid: Grid, start: Coord, goal: Coord) -> List[Coord]:
+    if not grid.in_bounds(start) or not grid.in_bounds(goal):
+        return []
+    if not grid.passable(start) or not grid.passable(goal):
+        return []
+    if start == goal:
+        return [start]
+    result = dijkstra(grid, start, goal)
+    return result.path
+
+
+def independent_planning(grid: Grid, agents: List[Tuple[Coord, Coord]]) -> List[List[Coord]]:
+    paths: List[List[Coord]] = []
+    for start, goal in agents:
+        path = astar_path(grid, start, goal, heuristic_manhattan)
+        paths.append(path)
+    return paths
