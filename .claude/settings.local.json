@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python person2_handoff.py)",
+      "Bash(python -c \":*)"
+    ]
+  }
+}

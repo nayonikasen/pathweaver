@@ -1,47 +1,85 @@
-# PathWeaver (Prototype 3/3)
+# PathWeaver
 
-This milestone completes the MAPF core with multiple coordination strategies and scenario presets.
+PathWeaver is a multi-agent pathfinding (MAPF) simulator that plans collision-free routes for multiple agents on a 2D grid and compares the behavior of four coordination algorithms side by side. It is designed for educational use and as a foundation for visual tooling, with real-world applications in warehouse robotics, autonomous vehicle coordination, and drone fleet management.
 
-## What is included
-- 2D grid editor with obstacles
-- Multi-agent independent planning baseline
-- Prioritized planning with reservation table (vertex + edge)
-- Cooperative A* (prioritized with vertex reservations only)
-- Conflict-Based Search (CBS) baseline
-- Animated simulation with conflict highlights and metrics
-- Scenario presets: warehouse, corridor, dense obstacles
+## Algorithms
 
-## Run
+| Algorithm | Approach | Conflict-free? |
+|---|---|---|
+| Independent Planning | Each agent plans without awareness of others | No — baseline only |
+| Prioritized Planning | Sequential space-time A\* with a shared reservation table; blocks vertex and edge (swap) conflicts | Usually, but not guaranteed |
+| Cooperative A\* | Same as Prioritized but checks vertex conflicts only, not edge conflicts | Usually, but not guaranteed |
+| Conflict-Based Search (CBS) | Two-level search: low-level space-time A\* with per-agent constraints, high-level constraint tree expanded by cost | Yes, within node cap |
+
+CBS is optimal when it completes within its node cap (default 200). Prioritized and Cooperative A\* may leave residual conflicts when an earlier agent's path passes through a later agent's permanent goal cell — this is a known property of priority-based planning, not a bug.
+
+## Project Structure
+
+```
+pathweaver/
+  grid.py          Grid, Coord, neighbors, in_bounds, passable
+  algorithms.py    All four MAPF algorithms plus supporting types
+                   (ReservationTable, Constraint, CBSNode)
+  metrics.py       run_comparison(), format_comparison_table(),
+                   AlgorithmResult, AgentStats
+  scenarios.py     Four preset scenarios (Scenario, ALL_SCENARIOS,
+                   get_scenario())
+  main.py          Single-agent development demo
+  multi_demo.py    Multi-agent development demo
+results.md         Latest benchmark output from validate_scenarios.py
+person1_smoke.py   Single-agent algorithm smoke tests
+person2_handoff.py Full integration checks for MAPF core
+```
+
+## Preset Scenarios
+
+| Name | Grid | Description |
+|---|---|---|
+| `crossing` | 20x20 | Two pairs of agents whose paths intersect head-on at guaranteed collision timesteps |
+| `bottleneck` | 20x20 | Four agents must funnel through a single-cell gap in a vertical wall |
+| `warehouse` | 20x20 | Four agents navigate around shelf-style obstacle rows |
+| `dense` | 15x15 | Four agents in a tighter grid with a checkerboard obstacle pattern |
+
+## Setup and Usage
 
 ```bash
 python3 -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-
-# single-agent
-python3 -m pathweaver.main --size 30 --cell 22
-
-# multi-agent
-python3 -m pathweaver.multi_demo --size 30 --cell 22
 ```
 
-## Multi-agent controls
-- Click: toggle obstacle
-- N then click: set agent start, click again for goal
-- O: obstacle mode
-- Space: plan all
-- P: play/pause simulation
-- R: reset simulation time
-- X: clear agents
-- C: clear obstacles
-- 1: independent
-- 2: prioritized
-- 3: cooperative A*
-- 4: CBS
-- W: warehouse scenario
-- K: corridor scenario
-- D: dense scenario
-- Esc: quit
+Run the integration checks:
 
-## Notes
-CBS here is a baseline implementation suitable for small agent counts (2-5). It may become slow on dense maps.
+```bash
+python3 person1_smoke.py
+python3 person2_handoff.py
+```
+
+Run the development demos:
+
+```bash
+# Single-agent pathfinding
+python3 -m pathweaver.main
+
+# Multi-agent planning with scenario presets
+python3 -m pathweaver.multi_demo
+```
+
+A Streamlit UI (`app.py`) is in progress.
+
+## Metrics
+
+Each algorithm run produces an `AlgorithmResult` with:
+
+- **Makespan** — timesteps until the last agent reaches its goal
+- **Total cost** — sum of all individual path lengths
+- **Conflict count** — remaining vertex collisions in the final paths
+- **Runtime** — wall-clock time in milliseconds
+- **Per-agent stats** — path length and wait steps for each agent
+
+Use `run_comparison(grid, agents)` to run all four algorithms on the same problem and `format_comparison_table(results)` to print a summary table.
+
+## Known Limitations
+
+- CBS is practical for 2-5 agents. The node cap (default 200) prevents exponential blowup on hard instances but means CBS may fall back to the best solution found rather than the proven optimum.
+- Prioritized and Cooperative A\* are order-dependent. Earlier agents do not account for cells that later agents will occupy as permanent goals, which can leave isolated conflicts in adversarial layouts.

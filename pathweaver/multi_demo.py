@@ -6,8 +6,8 @@ from typing import List, Optional, Tuple
 
 import pygame
 
-from .grid import Coord, Grid
-from .mapf import (
+from pathweaver.grid import Coord, Grid
+from pathweaver.mapf import (
     cooperative_a_star,
     cbs,
     independent_planning,
