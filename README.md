@@ -24,6 +24,7 @@ pathweaver/
                    AlgorithmResult, AgentStats
   scenarios.py     Four preset scenarios (Scenario, ALL_SCENARIOS,
                    get_scenario())
+  app.py           Streamlit UI — primary demo
   main.py          Single-agent development demo
   multi_demo.py    Multi-agent development demo
 results.md         Latest benchmark output from validate_scenarios.py
@@ -35,10 +36,10 @@ person2_handoff.py Full integration checks for MAPF core
 
 | Name | Grid | Description |
 |---|---|---|
-| `crossing` | 20x20 | Two pairs of agents whose paths intersect head-on at guaranteed collision timesteps |
-| `bottleneck` | 20x20 | Four agents must funnel through a single-cell gap in a vertical wall |
-| `warehouse` | 20x20 | Four agents navigate around shelf-style obstacle rows |
-| `dense` | 15x15 | Four agents in a tighter grid with a checkerboard obstacle pattern |
+| `crossing` | 20×20 | Two pairs of agents whose paths intersect head-on at guaranteed collision timesteps |
+| `bottleneck` | 20×20 | Four agents must funnel through a single-cell gap in a vertical wall |
+| `warehouse` | 20×20 | Four agents navigate around shelf-style obstacle rows |
+| `dense` | 15×15 | Four agents in a tighter grid with a checkerboard obstacle pattern |
 
 ## Setup and Usage
 
@@ -55,6 +56,12 @@ python3 person1_smoke.py
 python3 person2_handoff.py
 ```
 
+Run the Streamlit UI:
+
+```bash
+streamlit run pathweaver/app.py
+```
+
 Run the development demos:
 
 ```bash
@@ -64,8 +71,6 @@ python3 -m pathweaver.main
 # Multi-agent planning with scenario presets
 python3 -m pathweaver.multi_demo
 ```
-
-A Streamlit UI (`app.py`) is in progress.
 
 ## Metrics
 
@@ -81,5 +86,5 @@ Use `run_comparison(grid, agents)` to run all four algorithms on the same proble
 
 ## Known Limitations
 
-- CBS is practical for 2-5 agents. The node cap (default 200) prevents exponential blowup on hard instances but means CBS may fall back to the best solution found rather than the proven optimum.
+- CBS is practical for 2–5 agents. The node cap (default 200) prevents exponential blowup on hard instances but means CBS may fall back to the best solution found rather than the proven optimum.
 - Prioritized and Cooperative A\* are order-dependent. Earlier agents do not account for cells that later agents will occupy as permanent goals, which can leave isolated conflicts in adversarial layouts.
