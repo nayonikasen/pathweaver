@@ -331,6 +331,7 @@ class Constraint:
     agent: int
     coord: Coord
     timestep: int
+    edge_from: Optional[Coord] = None
 
 
 @dataclass
@@ -354,7 +355,12 @@ def astar_with_constraints(
     if not grid.passable(start) or not grid.passable(goal):
         return []
 
-    forbidden: set = {(c.coord, c.timestep) for c in constraints if c.agent == agent}
+    agent_constraints = [c for c in constraints if c.agent == agent]
+    forbidden: set = {(c.coord, c.timestep) for c in agent_constraints}
+    edge_forbidden: set = set()
+    for c in agent_constraints:
+        if c.edge_from is not None:
+            edge_forbidden.add((c.edge_from, c.coord, c.timestep))
 
     if start == goal and (start, 0) not in forbidden:
         return [start]
@@ -384,6 +390,8 @@ def astar_with_constraints(
         for nxt in list(grid.neighbors(current)) + [current]:
             if (nxt, next_t) in forbidden:
                 continue
+            if (current, nxt, next_t) in edge_forbidden:
+                continue
             new_g = g_score[(current, t)] + 1.0
             state_key = (nxt, next_t)
             if state_key not in g_score or new_g < g_score[state_key]:
@@ -404,15 +412,31 @@ def find_first_conflict(paths: List[List[Coord]]) -> Optional[Tuple[int, int, Co
     def pos_at(path: List[Coord], t: int) -> Optional[Coord]:
         if not path:
             return None
-        return path[min(t, len(path) - 1)]
+        return path[t] if t < len(path) else path[-1]
 
     for t in range(max_t):
-        for i in range(len(paths)):
-            for j in range(i + 1, len(paths)):
-                pi = pos_at(paths[i], t)
-                pj = pos_at(paths[j], t)
-                if pi is not None and pj is not None and pi == pj:
-                    return (i, j, pi, t)
+        # Vertex conflicts
+        occupied: Dict[Coord, int] = {}
+        for i, path in enumerate(paths):
+            pi = pos_at(path, t)
+            if pi is None:
+                continue
+            if pi in occupied:
+                return (occupied[pi], i, pi, t)
+            occupied[pi] = i
+
+        # Swap/edge conflicts
+        if t > 0:
+            for i in range(len(paths)):
+                for j in range(i + 1, len(paths)):
+                    a_prev = pos_at(paths[i], t - 1)
+                    a_now  = pos_at(paths[i], t)
+                    b_prev = pos_at(paths[j], t - 1)
+                    b_now  = pos_at(paths[j], t)
+                    if (a_prev == b_now and b_prev == a_now
+                            and a_prev is not None and b_prev is not None):
+                        return (i, j, a_now, t)
+
     return None
 
 
@@ -442,8 +466,35 @@ def conflict_based_search(
             return node.paths, False
 
         agent_i, agent_j, coord, t = conflict
-        for agent_idx in (agent_i, agent_j):
-            new_constraints = node.constraints + [Constraint(agent=agent_idx, coord=coord, timestep=t)]
+
+        def _pos(path: List[Coord], k: int) -> Optional[Coord]:
+            if not path:
+                return None
+            return path[k] if k < len(path) else path[-1]
+
+        a_prev = _pos(node.paths[agent_i], t - 1)
+        b_prev = _pos(node.paths[agent_j], t - 1)
+        is_swap = (
+            t > 0
+            and a_prev is not None
+            and b_prev is not None
+            and a_prev == _pos(node.paths[agent_j], t)
+            and b_prev == _pos(node.paths[agent_i], t)
+        )
+
+        if is_swap:
+            new_constraint_pairs = [
+                (agent_i, Constraint(agent=agent_i, coord=coord,  timestep=t, edge_from=a_prev)),
+                (agent_j, Constraint(agent=agent_j, coord=a_prev, timestep=t, edge_from=coord)),
+            ]
+        else:
+            new_constraint_pairs = [
+                (agent_i, Constraint(agent=agent_i, coord=coord, timestep=t)),
+                (agent_j, Constraint(agent=agent_j, coord=coord, timestep=t)),
+            ]
+
+        for agent_idx, new_constraint in new_constraint_pairs:
+            new_constraints = node.constraints + [new_constraint]
             new_paths = list(node.paths)
             start, goal = agents[agent_idx]
             new_path = astar_with_constraints(

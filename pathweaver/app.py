@@ -137,19 +137,22 @@ def _build_editor_figure(grid_w, grid_h, obstacles, agents):
 
 
 def _build_comparison_chart(all_results):
-    labels = [r.algorithm for r in all_results]
+    labels = [
+        r.algorithm + " (vertex only)" if r.algorithm == "Cooperative A*" else r.algorithm
+        for r in all_results
+    ]
     x = np.arange(len(labels))
     w = 0.25
 
     fig, ax = plt.subplots(figsize=(8, 3.8))
     b1 = ax.bar(x - w, [r.makespan   for r in all_results], w, label="Makespan",   color="#4c8eda", zorder=2)
     b2 = ax.bar(x,     [r.total_cost for r in all_results], w, label="Total Cost", color="#f28b44", zorder=2)
-    b3 = ax.bar(x + w, [r.conflicts  for r in all_results], w, label="Conflicts",  color="#e05c5c", zorder=2)
+    b3 = ax.bar(x + w, [r.conflicts  for r in all_results], w, label="Vertex Conflicts", color="#e05c5c", zorder=2)
 
     ax.set_xticks(x)
     ax.set_xticklabels(labels, fontsize=10)
     ax.set_ylabel("Value", fontsize=9)
-    ax.set_title("Algorithm Comparison — Makespan / Total Cost / Conflicts", fontsize=11)
+    ax.set_title("Algorithm Comparison — Makespan / Total Cost / Vertex Conflicts", fontsize=11)
     ax.legend(fontsize=9, loc="upper right")
     ax.set_facecolor("#fafafa")
     ax.yaxis.grid(True, color="#e0e0e0", zorder=0)
@@ -343,7 +346,7 @@ def main():
                 k1, k2, k3 = st.columns(3)
                 k1.metric("Makespan",  res.makespan)
                 k2.metric("Cost",      res.total_cost)
-                k3.metric("Conflicts", res.conflicts)
+                k3.metric("Vertex Conflicts", res.conflicts)
                 if res.capped:
                     st.warning("CBS capped", icon="⚠")
                 if not res.success:
@@ -377,14 +380,16 @@ def main():
             kpi1.metric("Makespan",     result.makespan)
             kpi2.metric("Total Cost",   result.total_cost)
             kpi3, kpi4 = st.columns(2)
-            kpi3.metric("Conflicts",    result.conflicts)
+            kpi3.metric("Vertex Conflicts", result.conflicts)
             kpi4.metric("Runtime (ms)", f"{result.runtime_ms:.1f}")
 
             if result.capped:
-                st.warning("CBS hit its node expansion cap — solution may not be optimal.")
+                st.warning("CBS hit its node expansion cap (200 nodes). The result may still have conflicts and is not guaranteed to be optimal.")
             if not result.success:
                 st.error("One or more agents have no valid path.")
-            if result.conflicts == 0 and result.success:
+            if (result.algorithm != "Independent"
+                    and result.conflicts == 0
+                    and result.success):
                 st.success("No conflicts — all agents reached their goals.")
 
             st.markdown("**Per-Agent Breakdown**")
@@ -392,7 +397,7 @@ def main():
                 "Agent":       [f"Agent {s.agent_id}" for s in result.per_agent],
                 "Path Length": [s.path_length         for s in result.per_agent],
                 "Wait Steps":  [s.wait_steps          for s in result.per_agent],
-            }, width="stretch", hide_index=True)
+            }, use_container_width=True, hide_index=True)
 
     st.markdown("---")
     st.subheader("Algorithm Comparison")
@@ -403,12 +408,39 @@ def main():
     summary_cols = st.columns(len(all_results))
     for col, r in zip(summary_cols, all_results):
         with col:
+            algo_display = (
+                f"{r.algorithm} (vertex only)"
+                if r.algorithm == "Cooperative A*"
+                else r.algorithm
+            )
             st.caption(
-                f"**{r.algorithm}**  \n"
+                f"**{algo_display}**  \n"
                 f"{'Success' if r.success else 'Failed'}"
                 f"{'  CBS capped' if r.capped else ''}  \n"
                 f"Runtime: {r.runtime_ms:.1f} ms"
             )
+
+    with st.expander("Algorithm Notes", expanded=False):
+        st.markdown("""
+**Independent Planning** — Each agent plans its shortest path with
+no awareness of other agents. Conflicts are expected and intentional
+— this is the baseline that shows why coordination is necessary.
+
+**Prioritized Planning** — Agents plan in sequence using space-time
+A\\*. Each agent's path is reserved before the next agent plans,
+blocking both vertex and swap conflicts. Not optimal — earlier agents
+do not account for later agents' goals.
+
+**Cooperative A\\* (vertex only)** — Same as Prioritized Planning but
+without swap-conflict prevention. Allows agents to pass through each
+other's previous positions. Included as a comparison point to show
+the impact of edge constraint checking.
+
+**Conflict-Based Search (CBS)** — Two-level search: low-level
+space-time A\\* per agent, high-level constraint tree resolving
+conflicts by adding constraints and replanning. Detects and resolves
+both vertex and swap conflicts. Optimal within the 200-node cap.
+""")
 
 
 if __name__ == "__main__":
