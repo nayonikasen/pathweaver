@@ -280,7 +280,7 @@ def main():
             fig_ed = _build_editor_figure(int(gw), int(gh),
                                           st.session_state.custom_obstacles,
                                           st.session_state.custom_agents)
-            st.pyplot(fig_ed, width="stretch")
+            st.pyplot(fig_ed, use_container_width=True)
             plt.close(fig_ed)
             st.caption("S0/S1… = start  |  G0/G1… = goal  |  dark cell = obstacle")
 
@@ -338,7 +338,7 @@ def main():
         for cell, res in zip([top_l, top_r, bot_l, bot_r], all_results):
             with cell:
                 fig = _build_frame(scenario, res, frame, figsize=(4, 4))
-                st.pyplot(fig, width="stretch")
+                st.pyplot(fig, use_container_width=True)
                 plt.close(fig)
                 k1, k2, k3 = st.columns(3)
                 k1.metric("Makespan",  res.makespan)
@@ -362,7 +362,7 @@ def main():
         with col_main:
             st.subheader("Grid Animation")
             fig = _build_frame(scenario, result, frame)
-            st.pyplot(fig, width="stretch")
+            st.pyplot(fig, use_container_width=True)
             plt.close(fig)
             st.caption(
                 f"**{scenario.name.capitalize()}** — {scenario.description}  \n"
@@ -397,7 +397,7 @@ def main():
     st.markdown("---")
     st.subheader("Algorithm Comparison")
     chart_fig = _build_comparison_chart(all_results)
-    st.pyplot(chart_fig, width="stretch")
+    st.pyplot(chart_fig, use_container_width=True)
     plt.close(chart_fig)
 
     summary_cols = st.columns(len(all_results))

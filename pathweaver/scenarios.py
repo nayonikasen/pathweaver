@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import List, Tuple
 
-from pathweaver.grid import Coord, Grid
+from .grid import Coord, Grid
 
 
 @dataclass
@@ -71,7 +71,7 @@ def scenario_warehouse() -> Scenario:
         name="warehouse",
         grid=grid,
         agents=agents,
-        description="6 agents navigate shelf-style obstacles in a warehouse layout",
+        description="4 agents navigate shelf-style obstacles in a warehouse layout",
     )
 
 
